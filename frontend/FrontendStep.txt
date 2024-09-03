@@ -1,0 +1,211 @@
+1- Setup react + typescript project
+npm create vite@latest
+npm install 
+npm run dev // see pacakge.json
+
+2-Create Landing Page
+Send projectId, language to backend app.post("/project") await copyS3Folder() copy s3 base code to code/projectID
+setLanguage -> options input
+setReplID ->random generate or type
+Button -> 
+used loading useState  baar baar click na ho
+onClick call to backend api with languge and replID
+navigate to next page with reply id in http:url?=replID yeh waha us page pe extract kar lenge
+     const [searchParams] = useSearchParams();
+     const replId = searchParams.get('replId') ?? '';
+
+3-Create Coding Page
+a) // setup websocket for io connection created a useState<Socket>
+whenever replId is changed creating new socket connection and saving that socket so that it can be used from anywhere
+const socket= useSocket(replId); useSocket is using IO connection to backend
+
+b) socket.on("loaded",takes files loaded from backend into its local folder )
+
+{type: 'file', name: 'index.js', path: '/index.js'}
+1
+{type: 'dir', name: 'CheckDir', path: '/CheckDir'}
+: 
+{type: 'file', name: 'package-lock.json', path: '/package-lock.json'}
+2
+: 
+{type: 'file', name: 'package.json', path: '/package.json)
+// aisa backend ne map karke bheja hai all Files ko (type,name,path)
+
+c) This fileContent ==== yahi type name path hai isme
+export interface RemoteFile {
+  type: "file" | "dir";
+  name: string;
+  path: string;
+}
+
+d) const [fileStructure, setFileStructure] = useState<RemoteFile[]>([]); 
+//all files get from socket.load save here sabse imp all upper layer files and dir mile json mein
+
+4- Editor Page(Open Source) SideBar + CodeWindow Basic useStates
+-> CodeSandBox website se left panel and right panel JUST NEED fileStructure
+https://github.com/codesandbox/codesandbox-client
+https://github.com/hkirat/repl/tree/main/bad-code/frontend/src/components/external/editor
+take socket, selectedFile(CodeWindow), setFileStructure(Sidebar/MoneroTree), onSelect(use for updating selected file and setFileStructure)
+)
+
+a) const [selectedFile, setSelectedFile] = useState<File | undefined>(undefined);
+// this will be used inside code window 
+if(selected file == Type "file") socket.emit(fetchContent)
+
+b) Made one method onSelect(file:File) and passed along with Editor everywhere
+if(file==DIR) toh setFileStructure ko update more json load
+else file==FILe toh content lao read karke backend se and 
+setSelectedFile : File hai
+socket?.emit("fetchContent", { path: file.path }, (data: string) => {
+IMP STEP      file.content = data;
+ file update with actual content:string form 
+// us file mein data bhara as string passed from backend fs.readFile karke us path pe
+setSelectedFile(file); //then set it
+
+change used by code windows
+
+c) interface File >= RemoteFile type name path hai aur data bhi hai
+*** File has content : string
+file.content= data(received from backend afetr fs.readFile)
+
+5-Editor Page Open Source 
+a) using fileStructure [{type,name,path},{}] =>  
+const rootDir = useMemo(() => {
+return buildFileTree(files);  // since building time baar baar recalculation ho sakta hai
+useMemo is used to memoize (like we do in Dynamic Programming, concept wise) and skip recalculation
+
+// now use rootDir.files[0] : get file you want
+Why RootDir Convert?
+RootDir part of file-manager.tsx which is open source and jo bhi yeh file tree code banaya hai
+woh file and direcrtoty TYPE DEFINED kiya hai file manager mein
+
+That's why my file structure convert into their RootDir and simply use their code
+
+// buildFileTree OpenSource => all RemoteFiles jo json tha unko hierachy plus apne defined DIRECTORY AND FILE CONVERT
+The buildFileTree function constructs a hierarchical file tree from a flat list of RemoteFile objects
+The buildFileTree function returns a Directory object representing the root directory of the constructed file tree.
+This root directory includes nested directories and files, each with the correct parent-child relationships and depth values.
+
+//Steps
+first separates the input data into directories and files:
+nitializes a cache (a Map) to store the constructed Directory and File objects and creates the root directory
+
+****//hamne pass type "dir" "file" yaha isne us array ko dir and files break aur inko map 
+apne interface type.directory and type.file mein kiya
+
+//inputconst data: RemoteFile[] = [
+  { type: "dir", name: "documents", path: "documents" },
+  { type: "file", name: "file1.txt", path: "documents/file1.txt" },
+  { type: "dir", name: "photos", path: "photos" },
+  { type: "file", name: "photo1.jpg", path: "photos/photo1.jpg" }
+];
+//output RootDir=> json //hierachica;
+{
+  "id": "root",
+  "name": "root",
+  "parentId": undefined,
+  "type": "DIRECTORY", //yeh define kar diya
+  "path": "",
+  "depth": 0,
+  "dirs": [
+    {
+      "id": "documents",
+      "name": "documents",
+      "path": "documents",
+      "parentId": "0",
+      "type": "DIRECTORY",
+      "depth": 1,
+      "dirs": [],
+      "files": [
+        {
+          "id": "documents/file1.txt",
+          "name": "file1.txt",
+          "path": "documents/file1.txt", //path wrt parents ho rahe
+          "parentId": "documents",
+          "type": "FILE",  //yeh define kar diya
+          "depth": 2
+        }}
+}
+
+b)rootDir Mil gaya Json on hierachy Type.Directory=dir(backend) and Type.File(file Backend sended) hai ab iske andar
+
+6-FileTree (CodeSandBox Code available)External Component Role: takes rootDir hierarchical order
+Takes 
+selectedFile(here decide hoga), 
+onSelect Method(if folder then more hierarchy if file change selected File)
+rootDir -> Convert this to visually Component
+
+Process Summary-> FileTree 
+Initially, rootDir is passed to FileTree.
+FileTree renders SubTree passing rootDir.
+SubTree iterates over rootDir.dirs and rootDir.files, rendering each DirDiv and FileDiv.
+Clicking on a FileDiv triggers onSelect(file) directly, setting selectedFile.
+Clicking on a DirDiv toggles its open state and triggers onSelect(directory) to propagate the selection.
+
+rootDir={
+  type, name ,dirs[],files[] array rakha tha inka 
+}
+
+rootDir.dirs => UI Component DirDiv => OnClick Laga hai send click dir 
+rootDir.files => UI Component FileDiv =>OnClick Laga hai send click file 
+OnSelect (file mila)=>file type basis selectedFile || fileStructure change hoga
+ 
+7-Code Component: CodeSandBox OpenSource : 
+takes selectedFile and Socket 
+
+import Editor from "@monaco-editor/react";
+use <Editor as main component direct 
+code = selectedFile.content hai
+value = {code}
+onChange debounce(0.5seconds ka wait karke fir call inside) 
+=> USES setTimeout internally => Then jo debouce(function) 1st timeout then function use after delay
+ // change the fileContent with new value
+// 1st locally then on s3
+socket.emit("updateContent", { path: selectedFile.path, content: value });
+
+
+__________________Terminal and Ouput Window_______________
+8-Output Component
+<iframe hai src="localhost:3001" is 3001 pe run hoga repld wala app
+Idea:can customize accordingly contenxt provide use karke port dynamic kar sakte
+
+
+9- Terminal Component Coding Page -> Xterm with socket io Github
+https://github.com/jpcweb/xtermjs-socketio
+
+a) Terminal window is completely created by xterm
+just create and return <div> ref={terminalRef} and give this ref to xterm and terminal will be 
+fit inside this div using FitAddon
+Binds the terminalRef to the div element where the xterm.js terminal will be rendered (<div ref={terminalRef}>).
+useRef Hook allows you to persist values between renders.
+const terminalRef = useRef(); terminal.current initial value
+
+b) Creating terminal using Xterm and fitting it inside div
+import { Terminal } from "xterm";
+const term = new Terminal(OPTIONS_TERM) // creating new terminal //option terms terminal looks tells
+ term.loadAddon(fitAddon); //Adds the FitAddon to the terminal instance, which ensures the terminal fits within its container.
+term.open(terminalRef.current); //using that <div component and set terminal in that
+fitAddon.fit();
+
+c)Communication  term.on() and term.write main hai terminal input apne paas and output dena terminal ko
+i) term.on(whatenever we write on terminal that (data)=>{
+  socket.emit(backend send kar do)
+})
+ii) Backend send ouput 
+1st socket.on("terminal", terminalHandler) catch
+ function terminalHandler({ data }) {
+            if (data instanceof ArrayBuffer) {
+                console.error(data);
+                console.log(ab2str(data)) //convert to string 
+$$$$$$$$$$$$$   term.write(ab2str(data)) // display that data to frontend terminal
+    }
+}
+
+iii) socket.emit("requestTerminal"); starting hua tab bata do
+//tell backend that backend can start creating its own terminal 
+       
+iv)  return () => {
+            socket.off("terminal")
+        }
+// when this terminal component closes
+//socket close and send msg to backend to close its pseudo terminal       

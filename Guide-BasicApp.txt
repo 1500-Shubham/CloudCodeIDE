@@ -1,0 +1,81 @@
+Implementation of an online code editor in Node.js
+Stack
+Node.js K8s Express socket.io
+
+Slides-> https://drive.google.com/file/d/1hbTCrm1Qm72YwtZY3poxziw0Y8csQ-Gt/view?usp=sharing
+
+
+Beginner App-> repl>BadCode : my-app/basic/app
+All Steps.txt provided how that project is build
+
+
+1-Exceution Service Monolith Service hoga
+1-Remote Code Excecution
+2-Long running Processes
+3-Shell access inside browser
+4-File Storage 
+
+Step0.1 Keeping copy of base project in S3-
+nodejs template rakh diya index.js package.json 
+S3-> repl / base / nodejs : all languages supported ka base
+copy tjhis folder to user workspace and user can edit and start that
+
+Step0.2 All languages you support node react rust ko download in machine
+Exceution service chal raha woh machine direct woh language/framework compile kar language
+ex: npm install karu execution service direct chala de file terminal se mere
+
+Step1 Initializing repl
+First user select its framework nodejs -> Create Repl Click -> Create Reply Endpoint API
+Copy s3 base nodejs file -> S3 new path repl / code / projectname/ paste nodejs file
+
+Step2 Taking user to edit screen 
+Side mein folder structure | Terminal(yeh using backend server hosted on machine uska terminal show kar rahe) | Code editor
+
+Step3 Create websocket connection between browser ONLINE IDE and exectute service (LIVE connection) send and receive message
+
+Step4 Ask execute service to fetch(give reply id/projectname) and provide all files from s3
+pull from s3 repl/code/id copy to your local backend server 
+** Lazily **  send file from backend server to frontend -> Pura nahi bhej rahe ek baar mein on demand bhejte hai 
+Folder name de raha when click on folder then load from backend and show
+
+Step5 Let the user edit files
+Edit the file add some lines -> send the changed file to backend ->
+Debounce the changes: aisa nahi turant turant change kar do s3 thoda ruko** and then make changes to s3 : Overwrite woh file kar rahe
+
+Step6 Add Delete file logic is same as updatign the file jo upar kiye
+
+Step7- Running/Executte the code
+Terminal browser write npm run dev -> websocket pass 
+Runs inside backend server and backend files stored pe run karega
+exec(npm run dev) -> gives :3000 running nodejs frontend
+Command browser -> send backend -> output of terminal -> Streming logs to browser -> browser terminal show kar do
+
+Step8- Expose the run frontend localhost:3000 pe after npm run dev
+
+
+
+Step9- User disconnect
+a) delete s3 copy code from backend server
+b) wait for a bit and send changes to s3 jo files update honge
+c) Stop process running inside backedn server npm run dev kiya ho un process stop karo
+
+
+Final APP Review
+1- Terminal only a box (write something)=> sedn backned =>(gets streaming logs)
+2- UI
+
+
+$$$$$$$$$$$$ DOWNSIDES
+//BAD if more user click run then backend only npm run dev ek time mein ek and expose frontend
+same machine hai 
+Works for single user
+Remote code execution
+Terminal is very adhoc 
+Single server setup dont autoscale
+$$$$$$$$$$$$
+
+Pseudo Terminal- Xterm.js library Runs on browser
+browser can talk to this terminal => send spawn keystrokes to backend server 
+
+browser Xterm.js keystrokes=>Convert into something terminal can understand => send to server => 
+talk to pseudo terminal => output send back to browser

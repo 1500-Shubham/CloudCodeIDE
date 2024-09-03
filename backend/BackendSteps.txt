@@ -1,0 +1,158 @@
+1-Install Node.js
+
+2-Initialise an empty typescript project
+npm init -y
+npm install typescript
+npx tsc --init
+example : index.ts 
+npx tsc -> convert ts to js output to folder mentioned in tsconfig.json
+
+
+3-Basic typescript configuration
+Change rootDir  to src 
+Change outDir  to dist  for the pro
+
+4-Add Dependencies
+npm install express @types/express nodemon ts-node aws-sdk dotenv node-pty socket.io cors
+node-pty // helps creating pseudo terminal which browser can talks to
+aws-sdk -> gives s3 object store
+
+5-Initialize a simple express app in index.ts listening on port 3000
+// build any project npx tsc -b TS->JS DIST mein convert
+
+6-Build one /project POST method : Lines commented for understanding
+takes parameters from frontend replID , baseCodeType
+6-0 create http.ts file and inside this pass app:Express where all api will be made
+6-0-0 create http Server using app Express and listen on that This server will be used by websocket later on 
+6-1 Copy S3 download repl/base/nodejs from s3 to backend and make code/replID on S3 as well
+6-2 aws.ts create usme s3Dwonlaod function create  
+
+7-CopyS3Download SourcePrefix & DestinationPrefix Steps : Basically actual file s3 hi hai waha se s3 mein copy dusre destination pe : no need to download to my computer
+ await copyS3Folder(`base/${language}`, `code/${replId}`); 
+a) Take all keys for source prefix 
+bucket-repl 
+source prefix- /base/nodejs (passed)
+get all keys inside this prefix  await s3.listObjectsV2(listParams).promise();
+b) Now for each key map and change its source address to destination addrees
+            // object key looks like /base/nodejs/index.ts from repl bucket
+            // change /base/nodejs to /code/replID/index.ts 
+            // now this bucket repl mein copy the same content file from source to destination
+            // object key is /code/replID/index.ts 
+            let destinationKey = object.Key.replace(sourcePrefix, destinationPrefix);
+            let copyParams = {
+                Bucket: "repl",
+                CopySource: `repl/${object.Key}`, // copy source is content file acutal file is repl/base/nodejs/index.ts this content copied to
+                Key: destinationKey // repl/code/replId/index.ts
+            };
+
+            console.log(copyParams);
+
+*** await s3.copyObject(copyParams).promise(); // to call that params copy
+
+8-Initialise websocket server -> Read socket.io.txt for backend Setup
+initWs(httpServer); //pass for io connection 
+io.connection banaya // repl id frontend se connection url mein query mein passkar diya
+
+9-Fetch S3Downloaded using repl ID and send this complete folder via socket emit loaded
+replID se 7th step mein copyS3 mein kiye the code/replId on cloudfare code hai
+await fetchS3Folder(`code/${replId}`, path.join(__dirname, `../tmp/${replId}`));
+//locally save that folder
+//Code fetchS3Folder inside aws.ts waha se export
+a)await s3.listObjectsV2(params).promise(); //get all keys
+keys map file => file.key nikala  const data = await s3.getObject(getObjectParams).promise();
+//data store kiya 
+b)const fileData = data.Body; //actual data hai yeh
+b)****  // fileData is S3.Body need to convert it to Buffer for fs.write to use
+now file Data write inside local folder filePath = thoda edit kiya using path
+c)await writeFile(filePath, fileData);
+Create folder fs use karke fs.mkdir filePath recursively folder ke andar folder gaye
+us filePath pe fs.write(filePaht,fileData)
+
+10-Socket.emit(all Local folder downloaded)
+//only dir pass kar rahe folder and files jo first layer mein hai
+await fetchDir(local folder path) fs.ts
+fs.readdir(folder path) => allFiles => map((file)=>{new fommat}) and return via resolve
+file => ({ type: file.isDirectory() ? "dir" : "file", name: file.name, path: `${baseDir}/${file.name}`  }))
+// return type,file.name,path kya hai // use by frontend sidebar to distinguish between dir and file
+{type: 'file', name: 'index.js', path: '/index.js'}
+1
+: 
+{type: 'file', name: 'package-lock.json', path: '/package-lock.json'}
+2
+: 
+{type: 'file', name: 'package.json', path: '/package.j
+
+
+11-Frontend-> Socket more connection: 
+a)socket?.emit("fetchDir,filePath,(callback jo return from socket.on)=>{here data direct})
+socket?.emit("fetchContent", { path: file.path }, (data: string)={}) 
+OnSelect Frontend (file bhejega us path ka fileStructure(TypeDirectory) or actualContentFile (Type file))
+
+i) fetchDir Calls function in fs.ts take filePath as argument 
+fs.readDir Upper Layer read ans same json fileStructure frontend ko samjh aaye send
+resolve(files.map(file => ({ type: file.isDirectory() ? "dir" : "file", name: file.name, path: `${baseDir}/${file.name}`  })));
+
+ii) fetchContent Calls function in fs.ts filePath as argument
+fs.readFile( actual data = read karega) 
+send as data:string to frontend  => selectedFile (data) set kar do (Code Component Show karega)
+
+b)Code Component showing selected File whenever value is changed
+socket.emit("updateContent", { path: selectedFile.path, content: value });
+
+// 1st Locally update file on path: new conent value
+// 2nd on S3 update kar do
+Backend -> scoket.on ("update content)
+const fullPath = path.join(__dirname, `../tmp/${replId}/${filePath}`); //local Path
+await saveFile(fullPath, content);
+await saveToS3(`code/${replId}`, filePath, content); //s3 Path
+
+i) saveFile => uses fs.write(filePath,conent)
+ii) saveToS3 => s3.putObject(params).promise() //Key/Path and Body:conent new kya hai
+// update the existing filePath to new conent
+
+
+
+
+__________________Terminal and Ouput Window_______________
+12- pty.ts direct mila xterm-socket-io github se
+ Imports fork and IPty from the node-pty library. 
+ fork is used to create a new pseudo-terminal, 
+ and IPty represents the pseudo-terminal interface.
+ const SHELL = "bash";: Defines the shell (in this case, bash) that will be used in the pseudo-terminal.
+
+ i) private session ={id,{terminal,repid}} initally constuctor ={ } empty
+ ii) createPty(socket.id,repid, And this method onData: (data: string, id: number) => void)){
+    create term = {SHELL, cwd: path.join (replId)//jaha kholna hai terminal}
+ }  
+ $$$$ term.on('data', (data: string) => onData(data, term.pid)); // toh yeh method call kar rahe
+ iii) create a session this.sessions[id]={terminal: term jo banaye and replID hai}
+
+ iv) write(terminalId: string, data: string) {
+        this.sessions[terminalId]?.         terminal.write(data); // acts like term.write
+    }
+
+v)  clear(terminalId: string) {
+        this.sessions[terminalId].terminal.kill();    //term.kill 
+        delete this.sessions[terminalId];
+    }
+
+13- Socket connection for terminal : Repld is present at the very beginning while starting io.connection
+i) const terminalManager = new TerminalManager(); isko use karenge for this socket connection
+ii) socket.on("requestTerminal") whenever frontend ready terminal xterm toh yeh bhejega so that backend apna terminal bana left
+    terminalManager.createPty(socket.id, replId, (data, id) => {
+            socket.emit('terminal', {
+                data: Buffer.from(data,"utf-8")
+            });
+        });
+// create backend terminal and jo term.on hua backend mein us data ko socket.emit karke bhej do
+
+iii) term.on('data', (data: string) => onData(data, term.pid)); STep12
+isme Ondata is attached toh 
+backend terminal mein data change hoga uska term.on chaleg
+OnData => socket.emit('terminal', {
+                data: Buffer.from(data,"utf-8")
+            });
+// frontend terminal write hoga aur display hoga
+
+This way term.on term.write both terminal backend and frontend
+using socket iske saath communicate and backend terminal actual working and frontend terminal only displaying
